@@ -4,72 +4,64 @@ import streamlit as st
 st.set_page_config(page_title="VOEN and Data Search System", layout="wide")
 
 st.title("📊 VOEN and Data Search Panel")
-st.write("Upload your Excel file and search quickly.")
+st.write("Bir neçə Excel faylını eyni vaxtda yükləyin və axtarış edin.")
 
-uploaded_file = st.file_uploader(
-    "Choose an Excel file (.xlsx format)", type=["xlsx", "xls"]
+# Birdən çox fayl yükləməyə icazə veririk
+uploaded_files = st.file_uploader(
+    "Excel fayllarını seçin (.xlsx formatında)",
+    type=["xlsx", "xls"],
+    accept_multiple_files=True,
 )
 
-if uploaded_file is not None:
+if uploaded_files:
   try:
-    # Excel vərəqlərini oxumaq
-    xl = pd.ExcelFile(uploaded_file)
-    sheet_names = xl.sheet_names
+    all_dfs = []
 
-    selected_sheet = st.selectbox("Select Excel Sheet:", sheet_names)
+    for uploaded_file in uploaded_files:
+      xl = pd.ExcelFile(uploaded_file)
+      # Hər fayldakı bütün səhifələri oxuyub birləşdiririk
+      for sheet in xl.sheet_names:
+        temp_df = pd.read_excel(uploaded_file, sheet_name=sheet)
+        # Fayl və səhifə adını da əlavə edə bilərik ki, hansından gəldiyi bilinsin
+        temp_df["Fayl_Adi"] = uploaded_file.name
+        temp_df["Sehife_Adi"] = sheet
+        all_dfs.append(temp_df)
 
-    header_row = st.number_input(
-        "Header Row Index (0 for first row, 1 for second, etc.):",
-        min_value=0,
-        max_value=10,
-        value=0,
-        step=1,
-    )
+    # Bütün faylları tək cədvəldə birləşdiririk
+    df = pd.concat(all_dfs, ignore_index=True)
+    st.success(f"Ümumi {len(uploaded_files)} fayl uğurla yükləndi!")
 
-    df = pd.read_excel(
-        uploaded_file, sheet_name=selected_sheet, header=header_row
-    )
-    st.success("File loaded successfully!")
+    columns = [str(col) for col in df.columns.tolist()]
 
-    if df.empty or len(df.columns) == 0:
-      st.warning(
-          "The selected sheet or header row resulted in empty columns. Please"
-          " adjust the header row index above."
-      )
-    else:
-      columns = [str(col) for col in df.columns.tolist()]
+    st.markdown("### Axtarış Parametrləri")
+    col1, col2 = st.columns(2)
 
-      st.markdown("### Search Parameters")
-      col1, col2 = st.columns(2)
+    with col1:
+      search_column = st.selectbox("Axtarılacaq sütunu seçin:", columns)
 
-      with col1:
-        search_column = st.selectbox(
-            "Select column to search (e.g. VOEN):", columns
-        )
+    with col2:
+      search_query = st.text_input("Axtarılacaq nömrə və ya sözü daxil edin:")
 
-      with col2:
-        search_query = st.text_input("Enter number or keyword to search:")
+    if search_query:
+      filtered_df = df[
+          df[search_column]
+          .astype(str)
+          .str.contains(search_query, case=False, na=False)
+      ]
 
-      if search_query:
-        filtered_df = df[
-            df[search_column]
-            .astype(str)
-            .str.contains(search_query, case=False, na=False)
-        ]
+      st.markdown(f"### Nəticələr ({len(filtered_df)} sətir tapıldı):")
 
-        st.markdown(f"### Results ({len(filtered_df)} rows found):")
-
-        if not filtered_df.empty:
-          st.dataframe(filtered_df, use_container_width=True)
-        else:
-          st.warning("No matching records found.")
+      if not filtered_df.empty:
+        st.dataframe(filtered_df, use_container_width=True)
       else:
-        st.info("Enter a query in the box above to start searching.")
+        st.warning("Bu sorğuya uyğun heç bir məlumat tapılmadı.")
+    else:
+      st.info("Axtarışa başlamaq üçün yuxarıdakı xanaya məlumat yazın.")
 
-      with st.expander("Preview Excel file (first 10 rows)"):
+      with st.expander("Bütün faylların ümumi görünüşü (ilk 10 sətir)"):
         st.dataframe(df.head(10), use_container_width=True)
 
   except Exception as e:
-    st.error(f"Error reading file: {e}")
+    st.error(f"Xəta baş verdi: {e}")
 else:
-  st.info("Please upload an Excel file to begin.")
+  st.info("Zəhmət olmasa başlamaq üçün bir və ya bir neçə Excel faylı yükləyin.")
