@@ -1,66 +1,57 @@
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="VÖEN v? M?lumat Axtaris Sistemi", layout="wide")
+st.set_page_config(page_title="VOEN and Data Search System", layout="wide")
 
-st.title("?? VÖEN v? M?lumat Axtaris Paneli")
-st.write("Excel faylinizi yükl?yin v? sür?tli s?kild? axtaris edin.")
+st.title("ðŸ“Š VOEN and Data Search Panel")
+st.write("Upload your Excel file and search quickly.")
 
-# Fayl yükl?m? hiss?si
+# File uploader
 uploaded_file = st.file_uploader(
-    "Excel faylini seçin (.xlsx formatinda)", type=["xlsx", "xls"]
+    "Choose an Excel file (.xlsx format)", type=["xlsx", "xls"]
 )
 
 if uploaded_file is not None:
-  # Fayli oxumaq
+
   @st.cache_data
   def load_data(file):
     return pd.read_excel(file)
 
   try:
     df = load_data(uploaded_file)
-    st.success("Fayl ugurla yükl?ndi!")
+    st.success("File uploaded successfully!")
 
-    # Sütun seçimi v? axtaris paneli
     columns = df.columns.tolist()
 
-    st.markdown("### Axtaris Parametrl?ri")
+    st.markdown("### Search Parameters")
     col1, col2 = st.columns(2)
 
     with col1:
-      search_column = st.selectbox(
-          "Axtaris aparilacaq sütunu seçin (m?s: VÖEN):", columns
-      )
+      search_column = st.selectbox("Select column to search (e.g. VOEN):", columns)
 
     with col2:
-      search_query = st.text_input(
-          "Axtarilacaq nömr? v? ya sözü daxil edin:"
-      )
+      search_query = st.text_input("Enter number or keyword to search:")
 
     if search_query:
-      # Sütunu m?tn? çevirib axtaris apaririq
       filtered_df = df[
           df[search_column]
           .astype(str)
           .str.contains(search_query, case=False, na=False)
       ]
 
-      st.markdown(
-          f"### N?tic?l?r ({len(filtered_df)} s?tir tapildi):"
-      )
+      st.markdown(f"### Results ({len(filtered_df)} rows found):")
 
       if not filtered_df.empty:
         st.dataframe(filtered_df, use_container_width=True)
       else:
-        st.warning("Bu sorguya uygun heç bir m?lumat tapilmadi.")
+        st.warning("No matching records found.")
     else:
-      st.info("Axtaris? baslamaq üçün yuxaridaki xanaya m?lumat yazin.")
+      st.info("Enter a query in the box above to start searching.")
 
-      # Ilkin önizl?m?
-      with st.expander("Excel faylinin ümumi görünüsü (ilk 10 s?tir)"):
+      with st.expander("Preview Excel file (first 10 rows)"):
         st.dataframe(df.head(10), use_container_width=True)
 
   except Exception as e:
-    st.error(f"Fayl oxunark?n x?ta bas verdi: {e}")
+    st.error(f"Error reading file: {e}")
 else:
-  st.info("Z?hm?t olmasa is? baslamaq üçün Excel faylinizi yükl?yin.")
+  st.info("Please upload an Excel file to begin.")
