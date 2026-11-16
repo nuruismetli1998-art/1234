@@ -16,28 +16,17 @@ uploaded_files = st.file_uploader(
 )
 
 
-# Cədvəldə əsas başlıq sətrini (içində mətn olan ilk dolğun sətri) avtomatik tapır
+# Ən çox dolu xanası olan sətri avtomatik başlıq seçən funksiya
 def find_header_row(file, sheet_name):
   try:
     temp_df = pd.read_excel(
-        file, sheet_name=sheet_name, header=None, nrows=15
+        file, sheet_name=sheet_name, header=None, nrows=20
     )
-    for idx, row in temp_df.iterrows():
-      # Əgər sətrin içində "voen", "vöen", "ad", "soyad", "ata" kimi sözlər varsa həmin sətri başlıq seçirik
-      row_str = " ".join(row.astype(str).str.lower().values)
-      if any(
-          word in row_str
-          for word in [
-              "voen",
-              "vöen",
-              "ad",
-              "soyad",
-              "məbləğ",
-              "təşkilat",
-              "qurum",
-          ]
-      ):
-        return idx
+    # Hər sətirdəki dolu (boş olmayan) xanaların sayını hesablayırıq
+    non_empty_counts = temp_df.notna().sum(axis=1)
+    if not non_empty_counts.empty:
+      # Ən çox dolu xanası olan sətrin indeksini qaytarırıq
+      return int(non_empty_counts.idxmax())
   except Exception:
     pass
   return 0
@@ -65,17 +54,27 @@ if uploaded_files:
           f"'{selected_file_name}' faylındakı səhifəni seçin:", sheet_names
       )
 
-    detected_header = find_header_row(selected_file, selected_sheet)
+    # Avtomatik tapılan başlıq indeksi
+    auto_header = find_header_row(selected_file, selected_sheet)
+
+    # Əgər avtomatik tapılan səhv olarsa, istifadəçi özü əl ilə dəyişə bilsin deyə nömrə paneli qoyuruq
+    header_row = st.number_input(
+        "Başlıq sətrinin nömrəsi (lazım gələrsə dəyişə bilərsiniz):",
+        min_value=0,
+        max_value=20,
+        value=auto_header,
+        step=1,
+    )
 
     # Məlumatı oxuyuruq
     df = pd.read_excel(
-        selected_file, sheet_name=selected_sheet, header=detected_header
+        selected_file, sheet_name=selected_sheet, header=header_row
     )
     df.columns = [str(col).strip() for col in df.columns]
 
     st.success(
-        f"'{selected_file_name}' — '{selected_sheet}' səhifəsi uğurla"
-        f" yükləndi! (Başlıq sətri: {detected_header + 1}-ci sətir)"
+        f"'{selected_file_name}' — '{selected_sheet}' səhifəsi yükləndi!"
+        f" (Başlıq sətri: {header_row + 1}-ci sətir)"
     )
 
     columns = [str(col) for col in df.columns.tolist()]
@@ -84,7 +83,6 @@ if uploaded_files:
     col1, col2 = st.columns(2)
 
     with col1:
-      # Burada cədvəlin bütün sütun adları çıxır: Ad, Soyad, VÖEN və s. Hansı ilə istəsəniz seçə bilərsiniz
       search_column = st.selectbox("Axtarış aparılacaq sütunu seçin:", columns)
 
     with col2:
