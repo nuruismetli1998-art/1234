@@ -22,10 +22,10 @@ def find_header_row(file, sheet_name):
   temp_df = pd.read_excel(file, sheet_name=sheet_name, header=None, nrows=10)
   for idx, row in temp_df.iterrows():
     row_str = row.astype(str).str.lower().values
-    # Əgər sətirdə "voen" və ya "vöen" sözü varsa, həmin sətri başlıq hesab edirik
+    # Sətirdə "voen" və ya "vöen" sözü olub-olmamasını yoxlayırıq
     if any("voen" in str(val) or "vöen" in str(val) for val in row_str):
       return idx
-  return 0  tapılmasa, 0-cı sətr götürülür
+  return 0  # Tapılmasa, 0-cı sətir götürülür
 
 
 if uploaded_files:
