@@ -4,14 +4,29 @@ import streamlit as st
 st.set_page_config(page_title="VOEN and Data Search System", layout="wide")
 
 st.title("📊 VOEN and Data Search Panel")
-st.write("Bir neçə Excel faylını eyni vaxtda yükləyin və axtarış edin.")
+st.write(
+    "Bir neçə Excel faylını yükləyin (başlıqlar fərqli sətirdə olsa belə"
+    " avtomatik tapılacaq)."
+)
 
-# Birdən çox fayl yükləməyə icazə veririk
 uploaded_files = st.file_uploader(
     "Excel fayllarını seçin (.xlsx formatında)",
     type=["xlsx", "xls"],
     accept_multiple_files=True,
 )
+
+
+# Avtomatik başlıq sətrini tapan köməkçi funksiya
+def find_header_row(file, sheet_name):
+  # Faylın əvvəlki 10 sətrini oxuyuruq
+  temp_df = pd.read_excel(file, sheet_name=sheet_name, header=None, nrows=10)
+  for idx, row in temp_df.iterrows():
+    row_str = row.astype(str).str.lower().values
+    # Əgər sətirdə "voen" və ya "vöen" sözü varsa, həmin sətri başlıq hesab edirik
+    if any("voen" in str(val) or "vöen" in str(val) for val in row_str):
+      return idx
+  return 0  tapılmasa, 0-cı sətr götürülür
+
 
 if uploaded_files:
   try:
@@ -19,17 +34,22 @@ if uploaded_files:
 
     for uploaded_file in uploaded_files:
       xl = pd.ExcelFile(uploaded_file)
-      # Hər fayldakı bütün səhifələri oxuyub birləşdiririk
       for sheet in xl.sheet_names:
-        temp_df = pd.read_excel(uploaded_file, sheet_name=sheet)
-        # Fayl və səhifə adını da əlavə edə bilərik ki, hansından gəldiyi bilinsin
+        # Hər vərəq üçün başlıq sətrini avtomatik təyin edirik
+        detected_header = find_header_row(uploaded_file, sheet)
+
+        temp_df = pd.read_excel(
+            uploaded_file, sheet_name=sheet, header=detected_header
+        )
         temp_df["Fayl_Adi"] = uploaded_file.name
         temp_df["Sehife_Adi"] = sheet
         all_dfs.append(temp_df)
 
-    # Bütün faylları tək cədvəldə birləşdiririk
     df = pd.concat(all_dfs, ignore_index=True)
-    st.success(f"Ümumi {len(uploaded_files)} fayl uğurla yükləndi!")
+    st.success(f"Ümumi {len(uploaded_files)} fayl avtomatik uyğunlaşdırılaraq yükləndi!")
+
+    # Sütun adlarındakı boşluqları təmizləyirik
+    df.columns = [str(col).strip() for col in df.columns]
 
     columns = [str(col) for col in df.columns.tolist()]
 
