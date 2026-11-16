@@ -1,12 +1,12 @@
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="VOEN and Data Search System", layout="wide")
+st.set_page_config(page_title="Excel Data Search System", layout="wide")
 
-st.title("📊 VOEN and Data Search Panel")
+st.title("📊 Excel Axtarış Paneli")
 st.write(
-    "Fayllara və onların ayrı-ayrı səhifələrinə tək-tək baxmaq və axtarış"
-    " etmək üçün panel."
+    "Fayllara, səhifələrə ayrı-ayrı baxın və istədiyiniz sütunla (Ad, Soyad, VÖEN"
+    " və s.) axtarış edin."
 )
 
 uploaded_files = st.file_uploader(
@@ -16,24 +16,34 @@ uploaded_files = st.file_uploader(
 )
 
 
-# Hansı xanada "vöen" və ya "voen" varsa, həmin sətri avtomatik tapır
+# Cədvəldə əsas başlıq sətrini (içində mətn olan ilk dolğun sətri) avtomatik tapır
 def find_header_row(file, sheet_name):
   try:
     temp_df = pd.read_excel(
         file, sheet_name=sheet_name, header=None, nrows=15
     )
     for idx, row in temp_df.iterrows():
-      for val in row.values:
-        val_str = str(val).lower()
-        if "voen" in val_str or "vöen" in val_str:
-          return idx
+      # Əgər sətrin içində "voen", "vöen", "ad", "soyad", "ata" kimi sözlər varsa həmin sətri başlıq seçirik
+      row_str = " ".join(row.astype(str).str.lower().values)
+      if any(
+          word in row_str
+          for word in [
+              "voen",
+              "vöen",
+              "ad",
+              "soyad",
+              "məbləğ",
+              "təşkilat",
+              "qurum",
+          ]
+      ):
+        return idx
   except Exception:
     pass
-  return 0  # Tapılmasa 0-cı sətir götürülür
+  return 0
 
 
 if uploaded_files:
-  # Faylları adları ilə birlikdə lüğətdə saxlayırıq
   file_dict = {file.name: file for file in uploaded_files}
 
   st.markdown("### 📁 Fayl və Səhifə Seçimi")
@@ -55,7 +65,6 @@ if uploaded_files:
           f"'{selected_file_name}' faylındakı səhifəni seçin:", sheet_names
       )
 
-    # Seçilmiş fayl və səhifə üçün başlıq sətrini avtomatik tapırıq
     detected_header = find_header_row(selected_file, selected_sheet)
 
     # Məlumatı oxuyuruq
@@ -66,7 +75,7 @@ if uploaded_files:
 
     st.success(
         f"'{selected_file_name}' — '{selected_sheet}' səhifəsi uğurla"
-        f" yükləndi! (Başlıq tapılan sətir: {detected_header + 1}-ci sətir)"
+        f" yükləndi! (Başlıq sətri: {detected_header + 1}-ci sətir)"
     )
 
     columns = [str(col) for col in df.columns.tolist()]
@@ -75,10 +84,11 @@ if uploaded_files:
     col1, col2 = st.columns(2)
 
     with col1:
-      search_column = st.selectbox("Axtarılacaq sütunu seçin:", columns)
+      # Burada cədvəlin bütün sütun adları çıxır: Ad, Soyad, VÖEN və s. Hansı ilə istəsəniz seçə bilərsiniz
+      search_column = st.selectbox("Axtarış aparılacaq sütunu seçin:", columns)
 
     with col2:
-      search_query = st.text_input("Axtarılacaq nömrə və ya sözü daxil edin:")
+      search_query = st.text_input("Axtarılacaq sözü və ya nömrəni daxil edin:")
 
     if search_query:
       filtered_df = df[
